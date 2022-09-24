@@ -2,4 +2,6 @@
 ldm/stable-diffusion-v1/
 models/ldm/inpainting_big/last.ckpt
 venv/
+logs/
+outputs/
 
