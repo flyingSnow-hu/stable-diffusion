@@ -1,0 +1,3 @@
+ckpt:
+  t2i: D:\diffusion\laion-super-resolution\sd-v1-4.ckpt
+  i2i: D:\diffusion\laion-super-resolution\last.ckpt
