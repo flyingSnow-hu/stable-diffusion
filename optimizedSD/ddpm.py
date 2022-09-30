@@ -575,7 +575,7 @@ class UNet(DDPM):
         total_steps = timesteps.shape[0]
         print(f"Running PLMS Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='PLMS Sampler', total=total_steps)
+        iterator = tqdm(time_range, desc='PLMS Sampler', total=total_steps, ncols=50)
         old_eps = []
 
         for i, step in enumerate(iterator):
@@ -714,7 +714,7 @@ class UNet(DDPM):
         total_steps = timesteps.shape[0]
         print(f"Running DDIM Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='Decoding image', total=total_steps)
+        iterator = tqdm(time_range, desc='Decoding image', total=total_steps, ncols=100)
         x_dec = x_latent
         x0 = init_latent
         for i, step in enumerate(iterator):

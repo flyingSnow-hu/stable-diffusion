@@ -28,19 +28,25 @@ mimetypes.init()
 mimetypes.add_type("application/javascript", ".js")
 
 model, modelCS, modelFS = None, None, None
-
-def chunk(it, size):
-    it = iter(it)
-    return iter(lambda: tuple(islice(it, size)), ())
+stopped = False
 
 
-def load_model_from_config(ckpt, verbose=False):
-    print(f"Loading model from {ckpt}")
-    pl_sd = torch.load(ckpt, map_location="cpu")
-    if "global_step" in pl_sd:
-        print(f"Global Step: {pl_sd['global_step']}")
-    sd = pl_sd["state_dict"]
-    return sd
+def stop():
+    global stopped
+    stopped = True
+
+# def chunk(it, size):
+#     it = iter(it)
+#     return iter(lambda: tuple(islice(it, size)), ())
+
+
+# def load_model_from_config(ckpt, verbose=False):
+#     print(f"Loading model from {ckpt}")
+#     pl_sd = torch.load(ckpt, map_location="cpu")
+#     if "global_step" in pl_sd:
+#         print(f"Global Step: {pl_sd['global_step']}")
+#     sd = pl_sd["state_dict"]
+#     return sd
 
 
 def load_img(image, h0, w0):
@@ -110,6 +116,9 @@ def generate(
     seed_everything(seed)
     sampler = "ddim"
 
+    global stopped
+    stopped = False
+
     # Logging
     logger(locals(), log_csv="logs/inpaint_gradio_logs.csv")
 
@@ -174,6 +183,8 @@ def generate(
     with torch.no_grad():
         all_samples = list()
         for _ in trange(n_iter, desc="Sampling"):
+            if stopped:
+                break
             for prompts in tqdm(data, desc="data"):
                 with precision_scope("cuda"):
                     modelCS.to(device)

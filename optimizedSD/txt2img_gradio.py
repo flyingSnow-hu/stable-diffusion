@@ -28,19 +28,25 @@ mimetypes.init()
 mimetypes.add_type("application/javascript", ".js")
 
 model, modelCS, modelFS = None, None, None
-
-def chunk(it, size):
-    it = iter(it)
-    return iter(lambda: tuple(islice(it, size)), ())
+stopped = False
 
 
-def load_model_from_config(ckpt, verbose=False):
-    print(f"Loading model from {ckpt}")
-    pl_sd = torch.load(ckpt, map_location="cpu")
-    if "global_step" in pl_sd:
-        print(f"Global Step: {pl_sd['global_step']}")
-    sd = pl_sd["state_dict"]
-    return sd
+def stop():
+    global stopped
+    stopped = True
+
+# def chunk(it, size):
+#     it = iter(it)
+#     return iter(lambda: tuple(islice(it, size)), ())
+#
+#
+# def load_model_from_config(ckpt, verbose=False):
+#     print(f"Loading model from {ckpt}")
+#     pl_sd = torch.load(ckpt, map_location="cpu")
+#     if "global_step" in pl_sd:
+#         print(f"Global Step: {pl_sd['global_step']}")
+#     sd = pl_sd["state_dict"]
+#     return sd
 
 # config = "optimizedSD/v1-inference.yaml"
 # ckpt = "models/ldm/stable-diffusion-v1/model.ckpt"
@@ -77,6 +83,7 @@ def load_model_from_config(ckpt, verbose=False):
 # modelFS.eval()
 # del sd
 
+
 def generate(
     prompt,
     ddim_steps,
@@ -103,6 +110,9 @@ def generate(
     model.turbo = turbo
     model.cdevice = device
     modelCS.cond_stage_model.device = device
+
+    global stopped
+    stopped = False
 
     if seed == "":
         seed = randint(0, 1000000)
@@ -135,9 +145,11 @@ def generate(
     all_samples = []
     seeds = ""
     with torch.no_grad():
-
         all_samples = list()
         for _ in trange(n_iter, desc="Sampling"):
+            print(f'stopped:{stopped}')
+            if stopped:
+                break
             for prompts in tqdm(data, desc="data"):
                 with precision_scope("cuda"):
                     modelCS.to(device)
@@ -243,7 +255,7 @@ demo = gr.Interface(
         gr.Radio(["png", "jpg"], value='png'),
         "checkbox",
         "checkbox",
-        gr.Radio(["ddim", "plms","heun", "euler", "euler_a", "dpm2", "dpm2_a", "lms"], value="plms"),
+        gr.Radio(["ddim", "plms","heun", "euler", "euler_a", "dpm2", "dpm2_a", "lms"], value="plms")
     ],
     outputs=["image", "text"],
 )
