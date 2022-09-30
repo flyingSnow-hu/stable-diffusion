@@ -27,6 +27,7 @@ import mimetypes
 mimetypes.init()
 mimetypes.add_type("application/javascript", ".js")
 
+model, modelCS, modelFS = None, None, None
 
 def chunk(it, size):
     it = iter(it)
@@ -261,68 +262,68 @@ def generate(
     return Image.fromarray(grid.astype(np.uint8)), image['mask'], txt
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='txt2img using gradio')
-    parser.add_argument('--config_path', default="optimizedSD/v1-inference.yaml", type=str, help='config path')
-    parser.add_argument('--ckpt_path', default="models/ldm/stable-diffusion-v1/model.ckpt", type=str, help='ckpt path')
-    args = parser.parse_args()
-    config = args.config_path
-    ckpt = args.ckpt_path
-    sd = load_model_from_config(f"{ckpt}")
-    li, lo = [], []
-    for key, v_ in sd.items():
-        sp = key.split(".")
-        if (sp[0]) == "model":
-            if "input_blocks" in sp:
-                li.append(key)
-            elif "middle_block" in sp:
-                li.append(key)
-            elif "time_embed" in sp:
-                li.append(key)
-            else:
-                lo.append(key)
-    for key in li:
-        sd["model1." + key[6:]] = sd.pop(key)
-    for key in lo:
-        sd["model2." + key[6:]] = sd.pop(key)
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='txt2img using gradio')
+#     parser.add_argument('--config_path', default="optimizedSD/v1-inference.yaml", type=str, help='config path')
+#     parser.add_argument('--ckpt_path', default="models/ldm/stable-diffusion-v1/model.ckpt", type=str, help='ckpt path')
+#     args = parser.parse_args()
+#     config = args.config_path
+#     ckpt = args.ckpt_path
+#     sd = load_model_from_config(f"{ckpt}")
+#     li, lo = [], []
+#     for key, v_ in sd.items():
+#         sp = key.split(".")
+#         if (sp[0]) == "model":
+#             if "input_blocks" in sp:
+#                 li.append(key)
+#             elif "middle_block" in sp:
+#                 li.append(key)
+#             elif "time_embed" in sp:
+#                 li.append(key)
+#             else:
+#                 lo.append(key)
+#     for key in li:
+#         sd["model1." + key[6:]] = sd.pop(key)
+#     for key in lo:
+#         sd["model2." + key[6:]] = sd.pop(key)
+#
+#     config = OmegaConf.load(f"{config}")
+#
+#     model = instantiate_from_config(config.modelUNet)
+#     _, _ = model.load_state_dict(sd, strict=False)
+#     model.eval()
+#
+#     modelCS = instantiate_from_config(config.modelCondStage)
+#     _, _ = modelCS.load_state_dict(sd, strict=False)
+#     modelCS.eval()
+#
+#     modelFS = instantiate_from_config(config.modelFirstStage)
+#     _, _ = modelFS.load_state_dict(sd, strict=False)
+#     modelFS.eval()
+#     del sd
 
-    config = OmegaConf.load(f"{config}")
-
-    model = instantiate_from_config(config.modelUNet)
-    _, _ = model.load_state_dict(sd, strict=False)
-    model.eval()
-
-    modelCS = instantiate_from_config(config.modelCondStage)
-    _, _ = modelCS.load_state_dict(sd, strict=False)
-    modelCS.eval()
-
-    modelFS = instantiate_from_config(config.modelFirstStage)
-    _, _ = modelFS.load_state_dict(sd, strict=False)
-    modelFS.eval()
-    del sd
-
-    demo = gr.Interface(
-        fn=generate,
-        inputs=[
-            gr.Image(tool="sketch", type="pil"),
-            gr.Image(tool="editor", type="pil"),
-            "text",
-            gr.Slider(0, 0.99, value=0.99, step=0.01),
-            gr.Slider(1, 1000, value=50),
-            gr.Slider(1, 100, step=1),
-            gr.Slider(1, 100, step=1),
-            gr.Slider(64, 4096, value=512, step=64),
-            gr.Slider(64, 4096, value=512, step=64),
-            gr.Slider(0, 50, value=7.5, step=0.1),
-            gr.Slider(0, 1, step=0.01),
-            gr.Slider(1, 2, value=1, step=1),
-            gr.Text(value="cuda"),
-            "text",
-            gr.Text(value="outputs/inpaint-samples"),
-            gr.Radio(["png", "jpg"], value='png'),
-            "checkbox",
-            "checkbox",
-        ],
-        outputs=["image", "image", "text"],
-    )
-    demo.launch()
+demo = gr.Interface(
+    fn=generate,
+    inputs=[
+        gr.Image(tool="sketch", type="pil"),
+        gr.Image(tool="editor", type="pil"),
+        "text",
+        gr.Slider(0, 0.99, value=0.99, step=0.01),
+        gr.Slider(1, 1000, value=50),
+        gr.Slider(1, 100, step=1),
+        gr.Slider(1, 100, step=1),
+        gr.Slider(64, 4096, value=512, step=64),
+        gr.Slider(64, 4096, value=512, step=64),
+        gr.Slider(0, 50, value=7.5, step=0.1),
+        gr.Slider(0, 1, step=0.01),
+        gr.Slider(1, 2, value=1, step=1),
+        gr.Text(value="cuda"),
+        "text",
+        gr.Text(value="outputs/inpaint-samples"),
+        gr.Radio(["png", "jpg"], value='png'),
+        "checkbox",
+        "checkbox",
+    ],
+    outputs=["image", "image", "text"],
+)
+    # demo.launch()

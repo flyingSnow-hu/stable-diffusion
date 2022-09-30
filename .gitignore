@@ -4,4 +4,5 @@ models/ldm/inpainting_big/last.ckpt
 venv/
 logs/
 outputs/
-
+**/__pycache__
+flagged

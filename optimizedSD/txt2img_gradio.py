@@ -27,6 +27,7 @@ import mimetypes
 mimetypes.init()
 mimetypes.add_type("application/javascript", ".js")
 
+model, modelCS, modelFS = None, None, None
 
 def chunk(it, size):
     it = iter(it)
@@ -41,41 +42,40 @@ def load_model_from_config(ckpt, verbose=False):
     sd = pl_sd["state_dict"]
     return sd
 
-config = "optimizedSD/v1-inference.yaml"
-ckpt = "models/ldm/stable-diffusion-v1/model.ckpt"
-sd = load_model_from_config(f"{ckpt}")
-li, lo = [], []
-for key, v_ in sd.items():
-    sp = key.split(".")
-    if (sp[0]) == "model":
-        if "input_blocks" in sp:
-            li.append(key)
-        elif "middle_block" in sp:
-            li.append(key)
-        elif "time_embed" in sp:
-            li.append(key)
-        else:
-            lo.append(key)
-for key in li:
-    sd["model1." + key[6:]] = sd.pop(key)
-for key in lo:
-    sd["model2." + key[6:]] = sd.pop(key)
-
-config = OmegaConf.load(f"{config}")
-
-model = instantiate_from_config(config.modelUNet)
-_, _ = model.load_state_dict(sd, strict=False)
-model.eval()
-
-modelCS = instantiate_from_config(config.modelCondStage)
-_, _ = modelCS.load_state_dict(sd, strict=False)
-modelCS.eval()
-
-modelFS = instantiate_from_config(config.modelFirstStage)
-_, _ = modelFS.load_state_dict(sd, strict=False)
-modelFS.eval()
-del sd
-
+# config = "optimizedSD/v1-inference.yaml"
+# ckpt = "models/ldm/stable-diffusion-v1/model.ckpt"
+# sd = load_model_from_config(f"{ckpt}")
+# li, lo = [], []
+# for key, v_ in sd.items():
+#     sp = key.split(".")
+#     if (sp[0]) == "model":
+#         if "input_blocks" in sp:
+#             li.append(key)
+#         elif "middle_block" in sp:
+#             li.append(key)
+#         elif "time_embed" in sp:
+#             li.append(key)
+#         else:
+#             lo.append(key)
+# for key in li:
+#     sd["model1." + key[6:]] = sd.pop(key)
+# for key in lo:
+#     sd["model2." + key[6:]] = sd.pop(key)
+#
+# config = OmegaConf.load(f"{config}")
+#
+# model = instantiate_from_config(config.modelUNet)
+# _, _ = model.load_state_dict(sd, strict=False)
+# model.eval()
+#
+# modelCS = instantiate_from_config(config.modelCondStage)
+# _, _ = modelCS.load_state_dict(sd, strict=False)
+# modelCS.eval()
+#
+# modelFS = instantiate_from_config(config.modelFirstStage)
+# _, _ = modelFS.load_state_dict(sd, strict=False)
+# modelFS.eval()
+# del sd
 
 def generate(
     prompt,
@@ -247,4 +247,4 @@ demo = gr.Interface(
     ],
     outputs=["image", "text"],
 )
-demo.launch()
+# demo.launch()
