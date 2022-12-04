@@ -4,5 +4,7 @@ models/ldm/inpainting_big/last.ckpt
 venv/
 logs/
 outputs/
-**/__pycache__
+./**/__pycache__
+./**/*.pyc
 flagged
+runtime.yaml
