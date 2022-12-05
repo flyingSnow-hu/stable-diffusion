@@ -27,6 +27,17 @@ dependencies:
     - torchmetrics==0.6.0
     - kornia==0.6
     - gradio==3.9.1
+    - basicsr>=1.4.2
+    - facexlib>=0.2.5
+    - lmdb
+    - opencv-python
+    - pyyaml
+    - scipy
+    - tb-nightly
+    - torch>=1.7
+    - tqdm
+    - yapf
+    - realesrgan
     - -e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
     - -e git+https://github.com/openai/CLIP.git@main#egg=clip
     - -e .

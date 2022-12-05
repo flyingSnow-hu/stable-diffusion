@@ -1,4 +1,3 @@
-ckpt:
-  t2i: D:\diffusion\checkpoints\sd-v1-4.ckpt
-  i2i: D:\diffusion\checkpoints\last.ckpt
+ckpt: D:\Works\diffusion\checkpoints\sd-v1-4.ckpt
+gfpan_model: D:\Works\diffusion\checkpoints\GFPGANv1.3.pth
 device: cuda

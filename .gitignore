@@ -4,7 +4,8 @@ models/ldm/inpainting_big/last.ckpt
 venv/
 logs/
 outputs/
-./**/__pycache__
-./**/*.pyc
+**/__pycache__
+**/*.pyc
 flagged
 runtime.yaml
+gfpgan/weights/*.pth

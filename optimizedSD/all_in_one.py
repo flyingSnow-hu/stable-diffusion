@@ -1,8 +1,17 @@
+import sys
+import os
+import time
 import gradio as gr
 import torch
+import cv2
+import numpy as np
+from PIL import Image
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
 from transformers import logging
+from gfpgan import GFPGANer
+from basicsr.utils import imwrite
+from einops import rearrange
 
 logging.set_verbosity_error()
 
@@ -30,7 +39,8 @@ class Pipeline():
         config = "optimizedSD/v1-inference.yaml"
         runtime_cfg = OmegaConf.load(f"runtime.yaml")
 
-        sd = Pipeline.load_model_from_config(f"{runtime_cfg.ckpt.t2i}")
+        sd = Pipeline.load_model_from_config(f"{runtime_cfg.ckpt}")
+        self.gfpan_model = runtime_cfg.gfpan_model
         li, lo = [], []
         for key, v_ in sd.items():
             sp = key.split(".")
@@ -293,7 +303,146 @@ class Pipeline():
                 gr.Button("Go!").click(fn=self.run_inpaint, inputs=inputs, outputs=outputs)
                 gr.Button("Stop!").click(fn=inpaint.stop, inputs=[], outputs=[])
 
-        return ret
+        return ret    
+    # endregion
+
+    # region gfppan
+    @staticmethod
+    def get_arch(version):        
+        if version == '1':
+            arch = 'original'
+            channel_multiplier = 1
+            model_name = 'GFPGANv1'
+            url = 'https://github.com/TencentARC/GFPGAN/releases/download/v0.1.0/GFPGANv1.pth'
+        elif version == '1.2':
+            arch = 'clean'
+            channel_multiplier = 2
+            model_name = 'GFPGANCleanv1-NoCE-C2'
+            url = 'https://github.com/TencentARC/GFPGAN/releases/download/v0.2.0/GFPGANCleanv1-NoCE-C2.pth'
+        elif version == '1.3':
+            arch = 'clean'
+            channel_multiplier = 2
+            model_name = 'GFPGANv1.3'
+            url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth'
+        elif version == '1.4':
+            arch = 'clean'
+            channel_multiplier = 2
+            model_name = 'GFPGANv1.4'
+            url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'
+        elif version == 'RestoreFormer':
+            arch = 'RestoreFormer'
+            channel_multiplier = 2
+            model_name = 'RestoreFormer'
+            url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/RestoreFormer.pth'
+        else:
+            raise ValueError(f'Wrong model version {version}.')
+        return arch, channel_multiplier, model_name, url
+
+    @staticmethod
+    def get_bg_upsampler(bg_upsampler, bg_tile):
+        # ------------------------ set up background upsampler ------------------------
+        if bg_upsampler == 'realesrgan':
+            if not torch.cuda.is_available():  # CPU
+                import warnings
+                warnings.warn('The unoptimized RealESRGAN is slow on CPU. We do not use it. '
+                              'If you really want to use it, please modify the corresponding codes.')
+                return None
+            else:
+                from basicsr.archs.rrdbnet_arch import RRDBNet
+                from realesrgan import RealESRGANer
+                model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
+                return RealESRGANer(
+                    scale=2,
+                    model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth',
+                    model=model,
+                    tile=bg_tile,
+                    tile_pad=10,
+                    pre_pad=0,
+                    half=True)  # need to set False in CPU mode
+        else:
+            return None
+
+
+    def run_gfppan(self, img_path, upscale, extension, output, save_faces, bg_tile, weight, version):
+        restored_img = None
+
+        # read image
+        img_name = os.path.basename(img_path)
+        basename, ext = os.path.splitext(img_name)
+        input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+
+        bg_upsampler = "realesrgan"
+        arch, channel_multiplier, model_name, url = Pipeline.get_arch(version)
+        restorer = GFPGANer(
+            model_path=self.gfpan_model,
+            upscale=upscale,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=Pipeline.get_bg_upsampler(bg_upsampler, bg_tile)
+        )
+
+        cropped_faces, restored_faces, restored_img = restorer.enhance(
+            input_img,
+            has_aligned=False,
+            only_center_face=False,
+            paste_back=True,
+            weight=weight
+        )
+
+        # save faces
+        file_name = f'{int(time.time())}'
+        if save_faces:
+            for idx, (cropped_face, restored_face) in enumerate(zip(cropped_faces, restored_faces)):
+
+                # save cropped face
+                save_crop_path = os.path.join(output, 'cropped_faces', f'{file_name}_{idx:02d}.png')
+                imwrite(cropped_face, save_crop_path)
+
+                # save restored face
+                save_face_name = f'{file_name}_{idx:02d}.png'
+                save_restore_path = os.path.join(output, 'restored_faces', save_face_name)
+                imwrite(restored_face, save_restore_path)
+
+                # save comparison image
+                cmp_img = np.concatenate((cropped_face, restored_face), axis=1)
+                imwrite(cmp_img, os.path.join(output, 'cmp', f'{file_name}_{idx:02d}.png'))
+
+
+
+        # save restored img
+        save_restore_path = ''
+        if restored_img is not None:
+            if extension == 'auto':
+                extension = ext[1:]
+
+            save_restore_path = os.path.join(output, f'{file_name}.{extension}')
+            imwrite(restored_img, save_restore_path)
+
+        return Image.fromarray(cv2.cvtColor(restored_img, cv2.COLOR_BGR2RGB)), f'Saved as {save_restore_path}'
+
+    def gfpgan_interface(self):
+        with gr.Blocks() as ret:
+            with gr.Row():
+                with gr.Column():
+                    inputs = [
+                        gr.Image(tool="editor", type="filepath"),
+                        gr.Slider(1, 10, step=1, label="upscale |放大倍数"),
+                        gr.Radio(["auto", "png", "jpg"], value='auto', label="输出格式"),
+                        gr.Text(value="outputs/upscale", label="outdir |输出目录"),
+                        gr.Checkbox(label="单独存储识别到的人脸"),
+                        gr.Slider(1, 1000, step=10, value=400, label="bg_tile |背景分块像素尺寸"),
+                        gr.Slider(0, 1, value=0.5, label="weight |Adjustable weights."),
+                        gr.Radio(["1", "1.2", "1.3", "1.4", "RestoreFormer"], value="1.3", label="version"),
+                    ]
+
+                with gr.Column():
+                    outputs = [
+                        gr.Image(label="output"),
+                        gr.Text(label="output"),
+                    ]
+            with gr.Row():
+                gr.Button("Go!").click(fn=self.run_gfppan, inputs=inputs, outputs=outputs)
+
     # endregion
 
     def run(self):
@@ -304,6 +453,8 @@ class Pipeline():
                 self.img2img_interface()
             with gr.Tab("inpaint"):
                 self.inpaint_interface()
+            with gr.Tab("upscale"):
+                self.gfpgan_interface()
         page.launch()
 
 
